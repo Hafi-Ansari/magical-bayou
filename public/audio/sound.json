@@ -1,0 +1,82 @@
+{
+  "melody": {
+    "start": 0.25,
+    "end": 135.25,
+    "duration": 135.5
+  },
+  "crickets": {
+    "start": 0.25,
+    "end": 16.25,
+    "duration": 16.5
+  },
+  "takes": [
+    "frog-1",
+    "frog-2",
+    "frog-3",
+    "bullfrog-1",
+    "bullfrog-2",
+    "owl-1",
+    "owl-2"
+  ],
+  "sfx": {
+    "moon-wax": {},
+    "moon-wane": {},
+    "creak-1": {},
+    "creak-2": {},
+    "door-shut": {},
+    "puff-1": {},
+    "puff-2": {},
+    "puff-3": {},
+    "meow-1": {},
+    "meow-2": {},
+    "mew-1": {},
+    "mew-2": {},
+    "spores-1": {},
+    "spores-2": {},
+    "bat-1": {},
+    "bat-2": {},
+    "witchlights": {},
+    "hoot": {},
+    "candle": {},
+    "potion-1": {},
+    "potion-2": {},
+    "shutter": {},
+    "cackle-1": {},
+    "cackle-2": {},
+    "ghost": {},
+    "lantern-1": {},
+    "lantern-2": {},
+    "plip-1": {},
+    "plip-2": {},
+    "plip-3": {},
+    "star-1": {},
+    "star-2": {}
+  },
+  "mix": {
+    "melody": 0.36,
+    "crickets": 0.12,
+    "calls": 0.55,
+    "effects": 0.6
+  },
+  "levels": {
+    "plip": -8,
+    "star": -7,
+    "lantern": -7,
+    "puff": -7,
+    "spores": -7,
+    "moon-wax": -2,
+    "moon-wane": -4,
+    "creak": -2,
+    "door-shut": -3,
+    "meow": -2,
+    "mew": -3,
+    "bat": -4,
+    "witchlights": -5,
+    "hoot": -3,
+    "candle": -3,
+    "potion": -4,
+    "shutter": -3,
+    "cackle": -2,
+    "ghost": -4
+  }
+}

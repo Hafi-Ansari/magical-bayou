@@ -1,0 +1,2 @@
+# Every machine checks out LF, as Biome expects, whatever its git settings (Windows defaults to CRLF).
+* text=auto eol=lf

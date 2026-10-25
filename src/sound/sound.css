@@ -1,0 +1,122 @@
+/* The sound's sigil and its menu (SoundMenu.tsx), in the bayou's top-right corner, over the
+   fireflies (.glimmer) and the wake cue. Over the bayou, so it may fade; it never moves. */
+.sound-menu {
+  position: fixed;
+  top: max(10px, env(safe-area-inset-top));
+  right: max(10px, env(safe-area-inset-right));
+  z-index: 4;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+}
+
+.sound-toggle {
+  width: 44px;
+  height: 44px;
+  padding: 9px;
+  border: 0;
+  border-radius: 50%;
+  /* A little of the night behind it, so it reads over a lantern or the fog. */
+  background: radial-gradient(circle, rgb(7 11 12 / 0.55) 40%, transparent 72%);
+  color: rgb(var(--gilt));
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  opacity: 0.8;
+  transition: opacity 0.4s ease;
+}
+
+.sound-toggle:hover,
+.sound-toggle:focus-visible,
+.sound-toggle[aria-expanded="true"] {
+  opacity: 1;
+}
+
+.sound-toggle[data-hushed] {
+  color: rgb(var(--fog));
+}
+
+.sound-toggle:focus-visible {
+  outline: 1px solid rgb(var(--gilt) / 0.6);
+  outline-offset: 2px;
+}
+
+.sound-toggle svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  filter: drop-shadow(0 0 3px rgb(var(--gilt) / 0.45));
+}
+
+.sound-toggle[data-hushed] svg {
+  filter: none;
+}
+
+.sound-moon {
+  fill: currentColor;
+}
+
+.sound-mark {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.6;
+  stroke-linecap: round;
+}
+
+/* The menu: a dark glass of the night with gilt words, a line for each layer. */
+.sound-layers {
+  display: grid;
+  gap: 2px;
+  min-width: 10.5rem;
+  margin: 0;
+  padding: 0.5rem 0.9rem 0.6rem;
+  border: 1px solid rgb(var(--gilt) / 0.3);
+  border-radius: 12px;
+  background: rgb(7 11 12 / 0.78);
+  box-shadow: 0 6px 24px rgb(0 0 0 / 0.45);
+  color: rgb(var(--gilt));
+  font-family: var(--script);
+  font-size: 1.6rem;
+  line-height: 1.15;
+  -webkit-text-stroke: 0.03em currentColor;
+  animation: sound-menu-in 160ms ease-out;
+}
+
+.sound-layers[hidden] {
+  display: none;
+}
+
+@keyframes sound-menu-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+}
+
+.sound-layer {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  min-height: 40px;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.sound-layer input {
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  accent-color: rgb(var(--gilt));
+  cursor: pointer;
+}
+
+.sound-layer:has(input:not(:checked)) span {
+  color: rgb(var(--fog));
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sound-layers {
+    animation: none;
+  }
+}

@@ -1,0 +1,2171 @@
+/*
+ * A bayou after dusk: teal mist, an amber glow where the sun went down, Spanish moss, lanterns
+ * on dark water, fireflies, and a witch's hut out on the water (Bayou.tsx, Hut.tsx, wilds.ts).
+ * Mobile first (390×844), and as happy filling a wide desktop as a live wallpaper.
+ */
+
+:root {
+  color-scheme: dark;
+
+  --void: #070b0c;
+  --deep: #0e1a1c;
+  --fog: 143 163 160;
+  --peach: 233 180 138;
+  --amber: 242 165 65;
+  --gilt: 196 160 92;
+  /* Witch-fire: the chimney's smoke and the turret's light, a Halloween purple and pale violet. */
+  --witchfire: 92 34 128;
+  --witchfire-core: 190 150 226;
+
+  /* Textures: SVG noise, drawn once by the browser. */
+  --grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .3 0 0 0 0 .2 0 0 0 0 .1 0 0 0 .8 -.3'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23g)'/%3E%3C/svg%3E");
+  /* One ripple of water, tiled and slid sideways (see .waves). */
+  --wave: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 10' preserveAspectRatio='none'%3E%3Cpath d='M0 5Q10 2.2 20 5T40 5' fill='none' stroke='rgb(143,163,160)' stroke-opacity='.55' stroke-width='1' vector-effect='non-scaling-stroke'/%3E%3C/svg%3E");
+
+  --script: "Italianno", "Snell Roundhand", cursive;
+
+  font-family: var(--script);
+  font-size: max(12.5px, min(3.45vw, 1.93dvh));
+  font-kerning: normal;
+  text-rendering: optimizeLegibility;
+  line-height: 1.2;
+  -webkit-font-smoothing: antialiased;
+  -webkit-tap-highlight-color: transparent;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  background: var(--void);
+}
+
+body {
+  margin: 0;
+  overflow: hidden;
+  overscroll-behavior: none;
+}
+
+button,
+input {
+  font: inherit;
+  color: inherit;
+}
+
+button {
+  cursor: pointer;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+:focus-visible {
+  outline: 2px solid rgb(var(--gilt) / 0.7);
+  outline-offset: 3px;
+  border-radius: 3px;
+}
+
+/* ---------- the wake cue ---------- */
+
+/* The wake cue (Cue.tsx, App.tsx): over the whole screen, so a tap anywhere wakes the bayou and
+   starts its sound, its words lying out on the water below the hut, clear of its roof and the
+   moon. It fades in once, then breathes; it fades out quickly. */
+.wake-cue {
+  position: fixed;
+  inset: 0;
+  z-index: 3;
+  display: grid;
+  place-items: end center;
+  width: 100%;
+  margin: 0;
+  padding: env(safe-area-inset-top) 0 calc(env(safe-area-inset-bottom) + 6dvh);
+  border: 0;
+  background: none;
+  font-family: var(--script);
+  font-size: 1.6rem;
+  line-height: 1.15;
+  text-align: center;
+  color: rgb(var(--gilt) / 0.9);
+  /* Italianno has no bold; a stroke in its own color stands in for one. */
+  -webkit-text-stroke: 0.035em currentColor;
+  opacity: 0;
+  transition: opacity 350ms ease-out;
+  pointer-events: none;
+}
+
+.wake-cue[data-shown] {
+  opacity: 1;
+  pointer-events: auto;
+  cursor: pointer;
+  transition-duration: 900ms;
+  animation:
+    wake-in 900ms ease-out 300ms both,
+    breathe 2.4s ease-in-out 1.6s infinite;
+}
+
+.wake-cue > span[aria-hidden] {
+  display: block;
+  max-width: calc(min(76vw, 42.5dvh) * 0.7);
+  text-wrap: balance;
+}
+
+@keyframes wake-in {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes breathe {
+  50% {
+    opacity: 0.5;
+  }
+}
+
+.cue-word {
+  white-space: nowrap;
+}
+
+/* Lying on the water: each letter bobs and sways a beat behind the one before. */
+.cue-word > span {
+  display: inline-block;
+  animation: waver 2.8s ease-in-out infinite;
+  animation-delay: calc(var(--i) * -0.11s);
+}
+
+@keyframes waver {
+  0%,
+  100% {
+    transform: translateY(-0.05em) skewX(-4deg) scaleY(1.04);
+  }
+  50% {
+    transform: translateY(0.06em) skewX(4deg) scaleY(0.95);
+  }
+}
+
+/* ---------- the bayou (Bayou.tsx; the living parts are wilds.ts) ---------- */
+
+.bayou {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+  background: var(--void);
+}
+
+.sky,
+.glow,
+.water,
+.trunk,
+.wilds,
+.lantern,
+.vignette {
+  position: absolute;
+}
+
+.sky {
+  inset: 0;
+  background: linear-gradient(
+    to bottom,
+    #091214 0%,
+    var(--deep) 16%,
+    #1f3436 38%,
+    #4a6260 55%,
+    rgb(var(--peach) / 0.75) 69%,
+    #6d6a5c 75%,
+    #22302f 79.5%,
+    var(--deep) 80%,
+    var(--void) 100%
+  );
+}
+
+/* Warm light behind the hut, as if the sun just went down behind the trees. */
+.glow {
+  left: 50%;
+  top: 46%;
+  width: 140vw;
+  height: 90vh;
+  margin: -45vh 0 0 -70vw;
+  background: radial-gradient(
+    closest-side,
+    rgb(var(--peach) / 0.5),
+    rgb(var(--amber) / 0.16) 45%,
+    transparent 78%
+  );
+  animation: glow 9s ease-in-out infinite alternate;
+}
+
+@keyframes glow {
+  from {
+    opacity: 0.7;
+    transform: scale(0.94);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1.06);
+  }
+}
+
+.water {
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 20%;
+  overflow: hidden;
+  background: linear-gradient(to bottom, #1c2c2d, #0c1617 35%, var(--void));
+}
+
+/* The glow caught on the water's surface at the far bank. */
+.water::before {
+  content: "";
+  position: absolute;
+  left: 10%;
+  right: 10%;
+  top: 0;
+  height: 3px;
+  background: linear-gradient(to right, transparent, rgb(var(--peach) / 0.45), transparent);
+}
+
+/*
+ * Rows of little wave crests, slid sideways by exactly one wave so the loop is seamless. Small
+ * and slow near the far bank, larger and quicker close by, the middle row running the other way.
+ */
+.waves {
+  position: absolute;
+  left: 0;
+  width: calc(100% + var(--tile));
+  background-image: var(--wave);
+  background-size: var(--tile) var(--row);
+  -webkit-mask-image: linear-gradient(transparent, #000 30%, #000 70%, transparent);
+  mask-image: linear-gradient(transparent, #000 30%, #000 70%, transparent);
+  will-change: transform;
+  animation: waves var(--speed) linear infinite;
+}
+
+.waves-far {
+  --tile: 46px;
+  --row: 6px;
+  --speed: 8s;
+  top: 0;
+  height: 36%;
+  opacity: 0.45;
+}
+
+.waves-mid {
+  --tile: 92px;
+  --row: 11px;
+  --speed: 6.5s;
+  top: 20%;
+  height: 50%;
+  opacity: 0.55;
+  animation-direction: reverse;
+}
+
+.waves-near {
+  --tile: 160px;
+  --row: 19px;
+  --speed: 5s;
+  top: 52%;
+  height: 50%;
+  opacity: 0.65;
+}
+
+@keyframes waves {
+  to {
+    transform: translateX(calc(-1 * var(--tile)));
+  }
+}
+
+/*
+ * The witch's hut on its hill (Hut.tsx), out on the water in the middle, standing a little nearer
+ * than the far bank, with the moon in the sky over it. As wide as a phone allows and as tall as a
+ * wide screen allows.
+ */
+.hut,
+.hut-reflection {
+  position: absolute;
+  left: 50%;
+  bottom: 16%;
+  width: min(72vw, 36dvh);
+  aspect-ratio: 400 / 610;
+  translate: -50% 0;
+  color: #091314;
+}
+
+/* Turned upside down about where the hill meets the water, squashed by the ripples, faint, and
+   fading as it goes deeper: mostly its windows' light. */
+.hut-reflection {
+  transform: scaleY(-0.55);
+  transform-origin: bottom;
+  opacity: 0.4;
+  filter: blur(1.5px);
+  -webkit-mask-image: linear-gradient(to top, #000 10%, transparent 75%);
+  mask-image: linear-gradient(to top, #000 10%, transparent 75%);
+}
+
+.hut-heart {
+  position: absolute;
+  pointer-events: none;
+}
+
+.hut-art {
+  position: relative;
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+/* The crescent: pale bone-white with a little of the sunset's warmth, in a soft halo. */
+.hut-moon {
+  fill: #f3e4c4;
+}
+
+/* Its glow, crescent or full, faintly amber. */
+.hut-moon-glow {
+  position: absolute;
+  width: 62%;
+  aspect-ratio: 1;
+  translate: -50% -50%;
+  border-radius: 50%;
+  background: radial-gradient(
+    closest-side,
+    rgb(246 218 168 / 0.3),
+    rgb(var(--amber) / 0.1) 30%,
+    rgb(var(--peach) / 0.06) 50%,
+    rgb(var(--fog) / 0.04) 68%,
+    transparent
+  );
+}
+
+.hut-stars {
+  fill: #f2e6c9;
+  animation: twinkle 5s ease-in-out infinite alternate;
+}
+
+@keyframes twinkle {
+  from {
+    opacity: 0.35;
+  }
+  to {
+    opacity: 0.8;
+  }
+}
+
+/* Edges catching the fog's light: rock faces, planks, shingles, the roof's lines. */
+.hut-rim {
+  stroke: rgb(var(--fog) / 0.16);
+}
+
+.hut-rim-strong {
+  stroke: rgb(var(--fog) / 0.34);
+}
+
+.hut-moss {
+  fill: rgb(48 74 62 / 0.75);
+}
+
+.hut-moss-line {
+  stroke: rgb(48 74 62 / 0.85);
+}
+
+.hut-lichen {
+  fill: rgb(168 182 146 / 0.38);
+}
+
+/* The mounds, stones and reeds in front of the hill: nearer, so darker. */
+.hut-near,
+.hut-near-fill {
+  fill: #050b0c;
+}
+
+.hut-near-line {
+  stroke: #050b0c;
+}
+
+/* Them (HutCats.tsx), a shade darker than the roof they sit on, the moon catching their top
+   edges and whiskers, a soft pink glow pulsing round them, a color nowhere else in the bayou, so
+   the eye finds them. Each part
+   turns about its own pivot, set inline in the SVG's units. */
+.hut-cats-glow {
+  position: absolute;
+  width: 44%;
+  aspect-ratio: 1.25;
+  translate: -50% -50%;
+  border-radius: 50%;
+  background: radial-gradient(
+    closest-side,
+    rgb(255 172 206 / 0.42),
+    rgb(255 160 200 / 0.3) 25%,
+    rgb(240 140 190 / 0.16) 50%,
+    rgb(230 130 185 / 0.06) 75%,
+    transparent
+  );
+  animation: cats-glow 3.6s ease-in-out infinite alternate;
+}
+
+@keyframes cats-glow {
+  from {
+    opacity: 0.65;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1.05);
+  }
+}
+
+.hut-cats {
+  position: absolute;
+  overflow: visible;
+  fill: #020505;
+  pointer-events: none;
+}
+
+.hut-cats g {
+  transform-box: view-box;
+}
+
+.hut-cat-tail-line {
+  fill: none;
+  stroke: #020505;
+  stroke-linecap: round;
+}
+
+.hut-cat-rim {
+  fill: none;
+  stroke: rgb(242 230 201 / 0.55);
+  stroke-width: 0.45;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.hut-cat-rim-faint {
+  stroke: rgb(242 230 201 / 0.2);
+}
+
+.hut-cat-whiskers {
+  fill: none;
+  stroke: rgb(242 230 201 / 0.4);
+  stroke-width: 0.2;
+  stroke-linecap: round;
+}
+
+/* Breathing, each at their own pace. */
+.hut-cat-breath {
+  animation: cat-breath 3.1s ease-in-out infinite alternate;
+}
+
+.hut-cat-two .hut-cat-breath {
+  animation-duration: 2.6s;
+  animation-delay: -0.8s;
+}
+
+@keyframes cat-breath {
+  to {
+    transform: scale(1.02, 1.012);
+  }
+}
+
+/* Gazing up, heads tipped toward the moon between them; every so often the second leans in to
+   rest its head against the first's, which tilts to meet it, and they hold it a while. Both on
+   one clock. */
+.hut-cat-one .hut-cat-head {
+  transform: rotate(7deg);
+  animation: cat-head-one 12s ease-in-out infinite;
+}
+
+.hut-cat-two .hut-cat-head {
+  transform: rotate(-9deg);
+  animation: cat-head-two 12s ease-in-out infinite;
+}
+
+.hut-cat-one .hut-cat-lean {
+  animation: cat-lean-one 12s ease-in-out infinite;
+}
+
+.hut-cat-two .hut-cat-lean {
+  animation: cat-lean-two 12s ease-in-out infinite;
+}
+
+@keyframes cat-head-one {
+  0%,
+  36%,
+  90%,
+  100% {
+    transform: rotate(7deg);
+  }
+  48%,
+  78% {
+    transform: rotate(11deg);
+  }
+}
+
+@keyframes cat-head-two {
+  0%,
+  30%,
+  86%,
+  100% {
+    transform: rotate(-9deg);
+  }
+  44%,
+  76% {
+    transform: rotate(-17deg);
+  }
+}
+
+@keyframes cat-lean-one {
+  0%,
+  36%,
+  90%,
+  100% {
+    transform: none;
+  }
+  48%,
+  78% {
+    transform: skewX(-2deg);
+  }
+}
+
+@keyframes cat-lean-two {
+  0%,
+  30%,
+  86%,
+  100% {
+    transform: none;
+  }
+  44%,
+  76% {
+    transform: skewX(6deg);
+  }
+}
+
+/* The tails sway a little along the ridge, and now and then a tip curls up and flicks. */
+.hut-cat-tail {
+  animation: cat-tail 4.6s ease-in-out infinite alternate;
+}
+
+.hut-cat-tip {
+  animation: cat-tip 5.1s ease-in-out infinite;
+}
+
+.hut-cat-two .hut-cat-tail {
+  animation-name: cat-tail-two;
+  animation-duration: 4.1s;
+}
+
+.hut-cat-two .hut-cat-tip {
+  animation-name: cat-tip-two;
+  animation-duration: 6.4s;
+  animation-delay: -2.8s;
+}
+
+@keyframes cat-tail {
+  from {
+    transform: rotate(2deg);
+  }
+  to {
+    transform: rotate(-3deg);
+  }
+}
+
+@keyframes cat-tail-two {
+  from {
+    transform: rotate(-2deg);
+  }
+  to {
+    transform: rotate(3deg);
+  }
+}
+
+@keyframes cat-tip {
+  0%,
+  55%,
+  100% {
+    transform: none;
+  }
+  64% {
+    transform: rotate(16deg);
+  }
+  70% {
+    transform: rotate(-6deg);
+  }
+  76% {
+    transform: rotate(10deg);
+  }
+  86% {
+    transform: none;
+  }
+}
+
+@keyframes cat-tip-two {
+  0%,
+  55%,
+  100% {
+    transform: none;
+  }
+  64% {
+    transform: rotate(-16deg);
+  }
+  70% {
+    transform: rotate(6deg);
+  }
+  76% {
+    transform: rotate(-10deg);
+  }
+  86% {
+    transform: none;
+  }
+}
+
+/* An ear flicks back and settles. */
+.hut-cat-ear {
+  animation: cat-ear 5.8s infinite;
+}
+
+.hut-cat-two .hut-cat-ear {
+  animation-name: cat-ear-two;
+  animation-duration: 8.2s;
+  animation-delay: -3.5s;
+}
+
+@keyframes cat-ear {
+  0%,
+  88%,
+  97%,
+  100% {
+    transform: none;
+  }
+  90% {
+    transform: rotate(-16deg);
+  }
+  92% {
+    transform: rotate(4deg);
+  }
+  94% {
+    transform: rotate(-9deg);
+  }
+}
+
+@keyframes cat-ear-two {
+  0%,
+  88%,
+  97%,
+  100% {
+    transform: none;
+  }
+  90% {
+    transform: rotate(16deg);
+  }
+  92% {
+    transform: rotate(-4deg);
+  }
+  94% {
+    transform: rotate(9deg);
+  }
+}
+
+/* Downstairs, warm amber firelight. Upstairs, a pale candle, a swamp-green glow and embers; up
+   the turret, witch-fire violet; on the hill, toadstools glowing like foxfire. */
+.hut-light-amber {
+  fill: #f39a3c;
+}
+
+.hut-light-pale {
+  fill: #f1d7a2;
+}
+
+.hut-light-witch {
+  fill: rgb(var(--witchfire-core));
+}
+
+.hut-light-potion {
+  fill: #a9d9a8;
+}
+
+.hut-light-ember {
+  fill: #c9562a;
+}
+
+.hut-light-shroom {
+  fill: #9fe0cf;
+}
+
+.hut-door {
+  stroke: rgb(243 154 60 / 0.75);
+}
+
+/* Light round each window, the door, the lanterns and the toadstools, flickering on its own. */
+.hut-glow {
+  position: absolute;
+  width: var(--size);
+  aspect-ratio: 1;
+  translate: -50% -50%;
+  border-radius: 50%;
+  animation: flicker 3.7s infinite;
+  animation-delay: calc(var(--i) * -1.3s);
+}
+
+.hut-glow-amber {
+  background: radial-gradient(
+    closest-side,
+    rgb(243 154 60 / 0.5),
+    rgb(214 110 40 / 0.16) 55%,
+    transparent
+  );
+}
+
+.hut-glow-pale {
+  background: radial-gradient(
+    closest-side,
+    rgb(241 215 162 / 0.34),
+    rgb(var(--peach) / 0.1) 55%,
+    transparent
+  );
+}
+
+.hut-glow-witch {
+  background: radial-gradient(
+    closest-side,
+    rgb(var(--witchfire-core) / 0.45),
+    rgb(var(--witchfire) / 0.18) 55%,
+    transparent
+  );
+}
+
+.hut-glow-potion {
+  background: radial-gradient(
+    closest-side,
+    rgb(169 217 168 / 0.38),
+    rgb(70 140 110 / 0.12) 55%,
+    transparent
+  );
+}
+
+.hut-glow-ember {
+  background: radial-gradient(
+    closest-side,
+    rgb(201 86 42 / 0.4),
+    rgb(140 50 20 / 0.12) 55%,
+    transparent
+  );
+  animation-duration: 2.3s;
+}
+
+.hut-glow-shroom {
+  background: radial-gradient(
+    closest-side,
+    rgb(159 224 207 / 0.4),
+    rgb(80 160 150 / 0.1) 55%,
+    transparent
+  );
+  animation: glow-breathe 6s ease-in-out infinite alternate;
+}
+
+@keyframes glow-breathe {
+  from {
+    opacity: 0.5;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* The candle upstairs gutters: its window and its glow dip and catch together. */
+.hut-candle {
+  animation: candle 2.9s infinite;
+}
+
+@keyframes candle {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  9% {
+    opacity: 0.55;
+  }
+  13% {
+    opacity: 0.9;
+  }
+  31% {
+    opacity: 0.7;
+  }
+  36% {
+    opacity: 1;
+  }
+  58% {
+    opacity: 0.62;
+  }
+  61% {
+    opacity: 0.95;
+  }
+  80% {
+    opacity: 0.78;
+  }
+}
+
+/* Witchfire smoke from the chimney: violet and teal puffs rising, swelling and thinning out one
+   after another, and a few sparks going up with them. */
+.hut-smoke {
+  position: absolute;
+  width: 16%;
+  aspect-ratio: 1;
+  translate: -50% -50%;
+  border-radius: 50%;
+  background: radial-gradient(
+    closest-side,
+    rgb(var(--witchfire-core) / 0.5),
+    rgb(var(--witchfire) / 0.22) 55%,
+    transparent
+  );
+  opacity: 0;
+  animation: hut-smoke 10s linear infinite;
+  animation-delay: calc(var(--i) * -2.5s);
+}
+
+.hut-smoke-teal {
+  background: radial-gradient(
+    closest-side,
+    rgb(150 205 196 / 0.42),
+    rgb(var(--fog) / 0.18) 55%,
+    transparent
+  );
+}
+
+@keyframes hut-smoke {
+  0% {
+    opacity: 0;
+    transform: translate(0, 0) scale(0.5);
+  }
+  15% {
+    opacity: 0.85;
+  }
+  100% {
+    opacity: 0;
+    transform: translate(45%, -280%) scale(2.4);
+  }
+}
+
+.hut-spark {
+  position: absolute;
+  width: 1.2%;
+  aspect-ratio: 1;
+  translate: -50% -50%;
+  border-radius: 50%;
+  background: #efe0ff;
+  box-shadow: 0 0 4px 1px rgb(var(--witchfire-core) / 0.8);
+  opacity: 0;
+  animation: hut-spark 4.5s ease-out infinite;
+  animation-delay: calc(var(--i) * -1.5s);
+}
+
+@keyframes hut-spark {
+  0% {
+    opacity: 0;
+    transform: translate(0, 0);
+  }
+  10% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translate(260%, -1500%);
+  }
+}
+
+/* Lantern light broken up on the water, each streak shivering on its own (Bayou.tsx). */
+.ripple {
+  position: absolute;
+  height: 2px;
+  border-radius: 2px;
+  background: rgb(var(--amber) / 0.85);
+  box-shadow: 0 0 6px rgb(var(--amber) / 0.6);
+  animation: ripple 2s ease-in-out infinite alternate;
+}
+
+.ripple-glow {
+  height: 1.5px;
+  background: rgb(var(--peach) / 0.4);
+  box-shadow: 0 0 8px rgb(var(--peach) / 0.25);
+}
+
+@keyframes ripple {
+  from {
+    opacity: 0.25;
+    transform: translateX(-62%) scaleX(0.45);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-38%) scaleX(1.3);
+  }
+}
+
+.trunk {
+  bottom: 13%;
+  height: 94%;
+  width: clamp(70px, 20vw, 220px);
+  fill: #030606;
+}
+
+.trunk-left {
+  left: clamp(-60px, -6vw, -16px);
+}
+
+.trunk-right {
+  right: clamp(-60px, -6vw, -16px);
+  transform: scaleX(-1);
+}
+
+.wilds {
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+/* Fireflies in front of everything (wilds.ts). */
+.glimmer {
+  position: fixed;
+  inset: 0;
+  z-index: 2;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+/* A cord from the canopy and a lantern on the end of it, swinging a little. */
+.lantern {
+  top: 0;
+  width: 1px;
+  height: var(--drop);
+  background: rgb(0 0 0 / 0.85);
+  transform-origin: top center;
+  animation: swing 5.5s ease-in-out infinite alternate;
+  animation-delay: calc(var(--i) * -2.3s);
+}
+
+.lantern::after {
+  content: "";
+  position: absolute;
+  left: -4px;
+  top: 100%;
+  width: 9px;
+  height: 13px;
+  border-radius: 3px 3px 4px 4px;
+  background: radial-gradient(circle at 50% 55%, #ffe2a8, rgb(var(--amber)) 45%, #b5561c);
+  box-shadow:
+    0 0 10px 3px rgb(var(--amber) / 0.7),
+    0 0 44px 16px rgb(232 137 58 / 0.32);
+  animation: flicker 4.3s infinite;
+  animation-delay: calc(var(--i) * -1.7s);
+}
+
+@keyframes swing {
+  from {
+    transform: rotate(-4deg);
+  }
+  to {
+    transform: rotate(4deg);
+  }
+}
+
+@keyframes flicker {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  41% {
+    opacity: 0.8;
+  }
+  44% {
+    opacity: 0.96;
+  }
+  70% {
+    opacity: 0.88;
+  }
+}
+
+.vignette {
+  inset: 0;
+  background: radial-gradient(120% 90% at 50% 45%, transparent 50%, rgb(0 0 0 / 0.65));
+}
+
+.vignette::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: var(--grain);
+  opacity: 0.3;
+  mix-blend-mode: overlay;
+}
+
+/*
+ * Playing in the bayou, once it's awake (Bayou.tsx's `awake`). The hut's parts are unseen buttons laid over it (Hut.tsx); what they set going plays once and goes.
+ * Like the rest of the scene, it all moves by `transform` and `opacity` alone.
+ */
+html:has(.bayou[data-awake]) {
+  /* Quick taps on the sky or the water mustn't zoom the page. */
+  touch-action: manipulation;
+}
+
+.hut-spot {
+  position: absolute;
+  min-width: 40px;
+  min-height: 40px;
+  translate: -50% -50%;
+  padding: 0;
+  border: 0;
+  border-radius: 10px;
+  background: none;
+  pointer-events: auto;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.hut-spots {
+  position: absolute;
+  inset: 0;
+}
+
+/* The windows upstairs sit close together, so theirs are a little smaller. */
+.hut-spot[data-small] {
+  min-width: 34px;
+  min-height: 34px;
+}
+
+/* Each glints in turn, from the sky down, just after each wave of the lanterns (`CYCLE` in
+   wilds.ts, 10 s), showing what can be touched: `--glint-at` puts the cycle where the
+   lanterns' is (Hut.tsx). The glint takes the first 1.4 s of the cycle. */
+.hut-spot::before {
+  content: "";
+  position: absolute;
+  inset: -15%;
+  border-radius: 50%;
+  background: radial-gradient(
+    closest-side,
+    rgb(255 246 226 / 0.9),
+    rgb(255 236 200 / 0.4) 35%,
+    rgb(255 236 200 / 0.1) 70%,
+    transparent
+  );
+  opacity: 0;
+  pointer-events: none;
+  animation: hut-glint 10s ease-in-out infinite;
+  animation-delay: calc(var(--glint-at, 0s) + 1.8s + var(--n) * 0.25s);
+}
+
+@keyframes hut-glint {
+  0% {
+    opacity: 0;
+    transform: scale(0.6);
+  }
+  5.6% {
+    opacity: 1;
+  }
+  14%,
+  100% {
+    opacity: 0;
+    transform: scale(1.3);
+  }
+}
+
+/* The moon waxes full and wanes back to the crescent (whose tip reaches a little past the full
+   disc, so it fades as the disc comes). Full, it's the crescent's bone-white glowing through the
+   fog: soft-edged, faintly mottled, a little warmer at its rim, in a wide halo and a faint
+   corona, with wisps of the bayou's fog drifting slowly across it. */
+.hut-moon {
+  transition: opacity 1.4s ease-in-out;
+}
+
+[data-moon="full"] .hut-moon {
+  opacity: 0;
+}
+
+.hut-full-moon {
+  position: absolute;
+  aspect-ratio: 1;
+  translate: -50% -50%;
+  opacity: 0;
+  transform: scale(0.94);
+  transition:
+    opacity 1.6s ease-in-out,
+    transform 2.4s ease-out;
+}
+
+/* The corona: a faint ring of color round it, as moonlight through mist makes. */
+.hut-full-moon::before {
+  content: "";
+  position: absolute;
+  inset: -70%;
+  border-radius: 50%;
+  background: radial-gradient(
+    closest-side,
+    transparent 55%,
+    rgb(var(--amber) / 0.05) 62%,
+    rgb(242 230 201 / 0.06) 68%,
+    rgb(150 205 196 / 0.04) 75%,
+    transparent 84%
+  );
+}
+
+.hut-full-moon-disc {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background:
+    radial-gradient(ellipse 30% 22% at 34% 36%, rgb(190 172 142 / 0.3), transparent),
+    radial-gradient(ellipse 22% 18% at 52% 50%, rgb(190 172 142 / 0.24), transparent),
+    radial-gradient(ellipse 16% 20% at 64% 38%, rgb(190 172 142 / 0.18), transparent),
+    radial-gradient(ellipse 12% 9% at 40% 74%, rgb(190 172 142 / 0.14), transparent),
+    radial-gradient(circle at 46% 44%, #f9efd9, #f1e2c2 45%, #e6d2ac 80%, #dac39b);
+  box-shadow:
+    0 0 4px 1px rgb(250 232 196 / 0.4),
+    0 0 14px 3px rgb(var(--amber) / 0.12);
+}
+
+/* Fog drifting across its face, thin enough to see it through. */
+.hut-full-moon-mist {
+  position: absolute;
+  left: -60%;
+  top: 46%;
+  width: 220%;
+  height: 46%;
+  border-radius: 50%;
+  background: radial-gradient(
+    closest-side,
+    rgb(168 184 178 / 0.3),
+    rgb(var(--fog) / 0.14) 50%,
+    rgb(var(--fog) / 0.04) 75%,
+    transparent
+  );
+}
+
+.hut-full-moon-mist-high {
+  left: -40%;
+  top: 8%;
+  width: 170%;
+  height: 34%;
+  opacity: 0.6;
+}
+
+[data-moon="full"] .hut-full-moon-mist {
+  animation: moon-mist 16s ease-in-out infinite alternate;
+}
+
+[data-moon="full"] .hut-full-moon-mist-high {
+  animation-duration: 21s;
+  animation-direction: alternate-reverse;
+}
+
+@keyframes moon-mist {
+  from {
+    transform: translateX(-22%);
+  }
+  to {
+    transform: translateX(22%);
+  }
+}
+
+.hut-moon-halo {
+  position: absolute;
+  width: 70%;
+  aspect-ratio: 1;
+  translate: -50% -50%;
+  border-radius: 50%;
+  background: radial-gradient(
+    closest-side,
+    rgb(246 222 178 / 0.22),
+    rgb(var(--amber) / 0.08) 30%,
+    rgb(var(--fog) / 0.05) 60%,
+    transparent
+  );
+  opacity: 0;
+  transform: scale(0.6);
+  transition:
+    opacity 1.6s ease-in-out,
+    transform 1.6s ease-in-out;
+}
+
+[data-moon="full"] .hut-full-moon,
+[data-moon="full"] .hut-moon-halo {
+  opacity: 1;
+  transform: none;
+}
+
+/* The door swings out on its hinge, its dark back beside the frame and its edge catching the
+   firelight, onto a bubbling cauldron by the hearth. The firelight glows out of the doorway and
+   lies in a soft pool on the ledge, flickering. */
+.hut-door-leaf {
+  transform-box: fill-box;
+  transform-origin: 0 50%;
+  transition: transform 0.9s cubic-bezier(0.3, 0.7, 0.2, 1);
+}
+
+[data-door="open"] .hut-door-leaf {
+  transform: scaleX(-0.38);
+}
+
+.hut-door-room {
+  fill: #ffbe6a;
+}
+
+.hut-door-edge {
+  stroke: rgb(255 190 106 / 0.8);
+}
+
+.hut-door-inside,
+.hut-door-edge,
+.hut-door-light {
+  opacity: 0;
+  transition: opacity 0.8s ease-in-out;
+}
+
+.hut-door-cut {
+  transition: opacity 0.4s ease-in-out;
+}
+
+[data-door="open"] :is(.hut-door-inside, .hut-door-edge, .hut-door-light) {
+  opacity: 1;
+}
+
+[data-door="open"] .hut-door-cut {
+  opacity: 0;
+}
+
+.hut-door-light {
+  position: absolute;
+  inset: 0;
+}
+
+.hut-door-hearth,
+.hut-door-pool {
+  position: absolute;
+  translate: -50% -50%;
+  border-radius: 50%;
+  animation: flicker 2.3s infinite;
+}
+
+.hut-door-hearth {
+  width: 30%;
+  aspect-ratio: 1;
+  background: radial-gradient(
+    closest-side,
+    rgb(255 196 116 / 0.55),
+    rgb(243 154 60 / 0.2) 40%,
+    rgb(214 110 40 / 0.06) 70%,
+    transparent
+  );
+}
+
+.hut-door-pool {
+  width: 26%;
+  aspect-ratio: 3.4;
+  background: radial-gradient(
+    closest-side,
+    rgb(255 200 120 / 0.5),
+    rgb(243 154 60 / 0.22) 45%,
+    rgb(214 110 40 / 0.06) 75%,
+    transparent
+  );
+  animation-duration: 3.1s;
+}
+
+/* A great puff of magic smoke and sparks from the chimney, a new color every time (`--h`, a
+   hue, set inline by Hut.tsx). */
+.hut-puff {
+  position: absolute;
+  width: 24%;
+  aspect-ratio: 1;
+  translate: -50% -50%;
+  border-radius: 50%;
+  background: radial-gradient(
+    closest-side,
+    hsl(var(--h) 85% 74% / 0.7),
+    hsl(var(--h) 70% 50% / 0.3) 55%,
+    transparent
+  );
+  opacity: 0;
+  animation: hut-puff 3.4s ease-out forwards;
+  animation-delay: calc(var(--i) * 0.12s);
+}
+
+@keyframes hut-puff {
+  0% {
+    opacity: 0;
+    transform: translate(0, 0) scale(0.4);
+  }
+  12% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translate(var(--dx), -320%) scale(2.8);
+  }
+}
+
+.hut-burst-spark {
+  position: absolute;
+  width: 1.4%;
+  aspect-ratio: 1;
+  translate: -50% -50%;
+  border-radius: 50%;
+  background: hsl(var(--h) 100% 93%);
+  box-shadow: 0 0 4px 1px hsl(var(--h) 90% 66% / 0.85);
+  opacity: 0;
+  animation: hut-burst-spark 2s ease-out forwards;
+  animation-delay: calc(var(--i) * 0.12s);
+}
+
+@keyframes hut-burst-spark {
+  0% {
+    opacity: 0;
+    transform: translate(0, 0);
+  }
+  10% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translate(var(--dx), -1800%);
+  }
+}
+
+/* Hearts rising over the two cats, as the pink round them glows warmer. */
+.hut-float-heart {
+  position: absolute;
+  width: 4.5%;
+  translate: -50% -50%;
+  overflow: visible;
+  fill: #ff9cc6;
+  filter: drop-shadow(0 0 3px rgb(255 160 200 / 0.8));
+  opacity: 0;
+  animation: hut-heart-float 2.8s ease-out forwards;
+  animation-delay: calc(var(--i) * 0.22s);
+}
+
+@keyframes hut-heart-float {
+  0% {
+    opacity: 0;
+    transform: translate(0, 0) scale(0.4);
+  }
+  15% {
+    opacity: 1;
+    transform: translate(calc(var(--dx) * 0.3), -60%) scale(1);
+  }
+  50% {
+    transform: translate(calc(var(--dx) * -0.2), -260%) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(var(--dx), -520%) scale(0.85);
+  }
+}
+
+.hut-cats-flush {
+  position: absolute;
+  width: 50%;
+  aspect-ratio: 1.25;
+  translate: -50% -50%;
+  border-radius: 50%;
+  background: radial-gradient(
+    closest-side,
+    rgb(255 180 212 / 0.5),
+    rgb(250 150 200 / 0.2) 50%,
+    transparent
+  );
+  opacity: 0;
+  animation: hut-flash 2.6s ease-in-out forwards;
+}
+
+/* A flash of light: the toadstools' foxfire, the turret's violet. */
+.hut-flash {
+  position: absolute;
+  width: 20%;
+  aspect-ratio: 1;
+  translate: -50% -50%;
+  border-radius: 50%;
+  opacity: 0;
+  animation: hut-flash 1.6s ease-out forwards;
+}
+
+.hut-flash-shroom {
+  background: radial-gradient(
+    closest-side,
+    rgb(190 255 236 / 0.6),
+    rgb(80 160 150 / 0.18) 55%,
+    transparent
+  );
+}
+
+.hut-flash-witch {
+  width: 18%;
+  background: radial-gradient(
+    closest-side,
+    rgb(var(--witchfire-core) / 0.7),
+    rgb(var(--witchfire) / 0.22) 55%,
+    transparent
+  );
+}
+
+@keyframes hut-flash {
+  0% {
+    opacity: 0;
+    transform: scale(0.7);
+  }
+  20% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.1);
+  }
+}
+
+/* Spores breathed out by the toadstools, drifting up glowing. */
+.hut-spore {
+  position: absolute;
+  width: 1.1%;
+  aspect-ratio: 1;
+  translate: -50% -50%;
+  border-radius: 50%;
+  background: #c8fff0;
+  box-shadow: 0 0 5px 2px rgb(159 224 207 / 0.7);
+  opacity: 0;
+  animation: hut-spore 3.2s ease-out forwards;
+  animation-delay: calc(var(--i) * 0.15s);
+}
+
+@keyframes hut-spore {
+  0% {
+    opacity: 0;
+    transform: translate(0, 0);
+  }
+  15% {
+    opacity: 1;
+  }
+  60% {
+    transform: translate(calc(var(--dx) * 0.6), -1200%);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(var(--dx), -2200%);
+  }
+}
+
+/* A bat out of the turret window, fluttering away up over the trees on the left. */
+.hut-bat {
+  position: absolute;
+  width: 9%;
+  translate: -50% -50%;
+  overflow: visible;
+  fill: #040808;
+  opacity: 0;
+  animation: hut-bat-fly 3.4s ease-in forwards;
+}
+
+.hut-bat-wings {
+  transform-box: view-box;
+  transform-origin: 12px 7px;
+  animation: hut-bat-flap 0.15s ease-in-out infinite alternate;
+}
+
+@keyframes hut-bat-flap {
+  to {
+    transform: scaleY(-0.5);
+  }
+}
+
+@keyframes hut-bat-fly {
+  0% {
+    opacity: 0;
+    transform: translate(0, 0) scale(0.3);
+  }
+  8% {
+    opacity: 1;
+    transform: translate(-60%, -40%) scale(0.7);
+  }
+  30% {
+    transform: translate(-280%, -320%) scale(1);
+  }
+  55% {
+    transform: translate(-150%, -700%) scale(1.1);
+  }
+  80% {
+    opacity: 1;
+    transform: translate(-520%, -1000%) scale(0.9);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-900%, -1500%) scale(0.6);
+  }
+}
+
+/* What a touch sets going in the sky and on the water (Bayou.tsx), placed where it touched. */
+.bayou-taps {
+  position: absolute;
+  inset: 0;
+}
+
+/* A shooting star through where it was touched, falling at its own slant (`--angle`) and length
+   (`--len`, Bayou.tsx): a white-hot head with a twinkle, a tail tapering behind it that grows as
+   it speeds and shrinks as it burns out, and specks of star dust left glittering on its path. */
+.shooting-star {
+  position: absolute;
+  width: var(--len);
+  height: 0;
+  translate: -50% 0;
+  rotate: var(--angle);
+}
+
+.star-flight {
+  position: absolute;
+  left: 0;
+  top: 0;
+  animation: star-flight 1.1s cubic-bezier(0.35, 0.15, 0.65, 0.85) forwards;
+}
+
+@keyframes star-flight {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(var(--len));
+  }
+}
+
+.star-head {
+  position: absolute;
+  left: -3px;
+  top: -3px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  /* Upright, whichever way it falls, so its twinkle is a cross. */
+  rotate: calc(-1 * var(--angle));
+  background: #fffaf0;
+  box-shadow:
+    0 0 6px 2px rgb(255 240 200 / 0.85),
+    0 0 18px 6px rgb(255 214 160 / 0.3);
+  opacity: 0;
+  animation: star-head 1.1s ease-in forwards;
+}
+
+.star-head::before,
+.star-head::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 18px;
+  height: 1px;
+  translate: -50% -50%;
+  background: linear-gradient(to right, transparent, rgb(255 250 235 / 0.9), transparent);
+}
+
+.star-head::after {
+  rotate: 90deg;
+}
+
+@keyframes star-head {
+  0% {
+    opacity: 0;
+    transform: scale(0.4);
+  }
+  12%,
+  75% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(0.3);
+  }
+}
+
+.star-tail {
+  position: absolute;
+  right: 0;
+  top: -1.5px;
+  width: calc(var(--len) * 0.5);
+  height: 3px;
+  background: linear-gradient(
+    to right,
+    transparent,
+    rgb(255 226 180 / 0.35) 55%,
+    rgb(255 250 235 / 0.95)
+  );
+  clip-path: polygon(0 50%, 100% 0, 100% 100%);
+  transform-origin: right center;
+  opacity: 0;
+  animation: star-tail 1.1s ease-in forwards;
+}
+
+@keyframes star-tail {
+  0% {
+    opacity: 0;
+    transform: scaleX(0.05);
+  }
+  15% {
+    opacity: 1;
+  }
+  60% {
+    opacity: 1;
+    transform: scaleX(1);
+  }
+  100% {
+    opacity: 0;
+    transform: scaleX(0.25);
+  }
+}
+
+/* Each speck lights as the head passes it (`--f`, how far along it lies). */
+.star-dust {
+  position: absolute;
+  left: calc(var(--f) * var(--len));
+  top: -1px;
+  width: 2px;
+  height: 2px;
+  border-radius: 50%;
+  background: #fff6e0;
+  box-shadow: 0 0 4px 1px rgb(255 236 200 / 0.7);
+  opacity: 0;
+  animation: star-dust 1.3s ease-out forwards;
+  animation-delay: calc(var(--f) * 1s);
+}
+
+@keyframes star-dust {
+  0% {
+    opacity: 0;
+    transform: translateY(0);
+  }
+  10% {
+    opacity: 1;
+  }
+  35% {
+    opacity: 0.35;
+  }
+  55% {
+    opacity: 0.9;
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(5px);
+  }
+}
+
+/* Two rings of lantern light spreading out on the water from where it was touched. */
+.tap-ripple {
+  position: absolute;
+  aspect-ratio: 3.4;
+  translate: -50% -50%;
+}
+
+.tap-ripple::before,
+.tap-ripple::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border: 2px solid rgb(255 214 150 / 0.85);
+  border-radius: 50%;
+  box-shadow:
+    0 0 8px rgb(var(--amber) / 0.55),
+    inset 0 0 8px rgb(var(--amber) / 0.35);
+  opacity: 0;
+  animation: tap-ripple 1.8s ease-out forwards;
+}
+
+.tap-ripple::after {
+  animation-delay: 0.35s;
+}
+
+@keyframes tap-ripple {
+  0% {
+    opacity: 0.9;
+    transform: scale(0.1);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1);
+  }
+}
+
+/* A lantern hung in CSS, touched, flares up a moment (those on the limbs flare in wilds.ts). */
+.lantern-flare,
+.lantern-wave {
+  position: absolute;
+  left: -45px;
+  top: calc(100% - 39px);
+  width: 91px;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: radial-gradient(
+    closest-side,
+    rgb(255 236 190 / 1),
+    rgb(var(--amber) / 0.6) 30%,
+    rgb(232 137 58 / 0.2) 65%,
+    transparent
+  );
+  opacity: 0;
+  animation: lantern-flare 1.3s ease-out forwards;
+}
+
+@keyframes lantern-flare {
+  0% {
+    opacity: 0;
+    transform: scale(0.6);
+  }
+  15% {
+    opacity: 1;
+    transform: scale(1.2);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1);
+  }
+}
+
+/* The lanterns hung in CSS, in the lanterns' wave every 10 s (`CYCLE` in wilds.ts):
+   `--wave` puts each where the wave reaches it (Bayou.tsx). */
+.lantern-wave {
+  animation: lantern-wave 10s linear infinite;
+  animation-delay: var(--wave);
+}
+
+@keyframes lantern-wave {
+  0% {
+    opacity: 0;
+    transform: scale(0.6);
+  }
+  1.2% {
+    opacity: 1;
+    transform: scale(1.2);
+  }
+  5% {
+    opacity: 0.45;
+  }
+  12%,
+  100% {
+    opacity: 0;
+    transform: scale(1);
+  }
+}
+
+/* A drawing laid over part of the hut, in its own units (Hut.tsx's `Overlay`). */
+.hut-over {
+  position: absolute;
+  overflow: visible;
+  pointer-events: none;
+}
+
+/* Every window's own (Hut.tsx's `Effect`). `data-playing` on the hut names what's playing, so a
+   window's glow can follow it. */
+
+/* The tower window runs through the witchlights, one after another. */
+.hut-tower-light {
+  opacity: 0;
+  animation: hut-tower 1.2s ease-in-out both;
+  animation-delay: calc(var(--k) * 0.6s);
+}
+
+@keyframes hut-tower {
+  0% {
+    opacity: 0;
+  }
+  35% {
+    opacity: 0.95;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+/* The attic goes dark, and an owl's eyes blink out of it twice. */
+.hut-owl-dark {
+  fill: #0a0f0e;
+  opacity: 0;
+  animation: hut-owl-dark 3.2s ease-in-out both;
+}
+
+@keyframes hut-owl-dark {
+  0% {
+    opacity: 0;
+  }
+  10%,
+  85% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+.hut-owl-eyes {
+  fill: #ffd84d;
+  transform-box: fill-box;
+  transform-origin: center;
+  opacity: 0;
+  animation: hut-owl-eyes 3.2s ease-in-out both;
+}
+
+.hut-owl-pupils {
+  fill: #1a1206;
+}
+
+/* The owl's eyes glowing out of the dark, while they're open. */
+.hut-flash-owl {
+  width: 12%;
+  background: radial-gradient(
+    closest-side,
+    rgb(255 210 90 / 0.5),
+    rgb(255 180 60 / 0.15) 55%,
+    transparent
+  );
+  animation: hut-owl-glow 3.2s ease-in-out forwards;
+}
+
+@keyframes hut-owl-glow {
+  0%,
+  15%,
+  80%,
+  100% {
+    opacity: 0;
+  }
+  22%,
+  74% {
+    opacity: 1;
+  }
+}
+
+@keyframes hut-owl-eyes {
+  0%,
+  15% {
+    opacity: 0;
+    transform: scaleY(1);
+  }
+  22%,
+  36%,
+  42%,
+  54%,
+  60% {
+    opacity: 1;
+    transform: scaleY(1);
+  }
+  39%,
+  57% {
+    transform: scaleY(0.1);
+  }
+  74% {
+    opacity: 1;
+  }
+  80%,
+  100% {
+    opacity: 0;
+    transform: scaleY(1);
+  }
+}
+
+.hut[data-playing~="attic"] .hut-glow[data-part="attic"] {
+  animation: hut-window-dark 3.2s ease-in-out both;
+}
+
+@keyframes hut-window-dark {
+  0% {
+    opacity: 1;
+  }
+  10%,
+  85% {
+    opacity: 0.1;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+
+/* The candle is blown out, its smoke curls up, and it catches again. */
+.hut-snuff-shade {
+  fill: #0b100f;
+  opacity: 0;
+  animation: hut-snuff-shade 2.8s ease-in-out both;
+}
+
+@keyframes hut-snuff-shade {
+  0% {
+    opacity: 0;
+  }
+  8%,
+  60% {
+    opacity: 0.93;
+  }
+  68%,
+  100% {
+    opacity: 0;
+  }
+}
+
+.hut-snuff-light {
+  fill: #ffe6ad;
+  opacity: 0;
+  animation: hut-snuff-light 2.8s ease-out both;
+}
+
+@keyframes hut-snuff-light {
+  0%,
+  60% {
+    opacity: 0;
+  }
+  66% {
+    opacity: 0.9;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+.hut-snuff-wisp {
+  stroke: rgb(196 206 200 / 0.65);
+  opacity: 0;
+  animation: hut-snuff-wisp 2.8s ease-out both;
+}
+
+@keyframes hut-snuff-wisp {
+  0%,
+  6% {
+    opacity: 0;
+    transform: translate(0, 0);
+  }
+  14% {
+    opacity: 1;
+  }
+  60%,
+  100% {
+    opacity: 0;
+    transform: translate(2px, -12px);
+  }
+}
+
+.hut[data-playing~="candle"] .hut-glow[data-part="candle"] {
+  animation: hut-candle-snuff 2.8s ease-in-out both;
+}
+
+@keyframes hut-candle-snuff {
+  0% {
+    opacity: 1;
+  }
+  8%,
+  60% {
+    opacity: 0.08;
+  }
+  66%,
+  100% {
+    opacity: 1;
+  }
+}
+
+/* Green bubbles wobble up out of the moss-hung window and pop. */
+.hut-flash-potion {
+  width: 16%;
+  background: radial-gradient(
+    closest-side,
+    rgb(190 255 180 / 0.7),
+    rgb(80 170 110 / 0.22) 55%,
+    transparent
+  );
+}
+
+.hut-bubble {
+  position: absolute;
+  width: calc(2.2% * var(--s));
+  aspect-ratio: 1;
+  translate: -50% -50%;
+  border: 1px solid rgb(200 255 200 / 0.85);
+  border-radius: 50%;
+  background: radial-gradient(
+    circle at 35% 35%,
+    rgb(235 255 230 / 0.7),
+    rgb(140 220 150 / 0.25) 40%,
+    rgb(80 170 110 / 0.15) 70%
+  );
+  box-shadow: 0 0 4px rgb(150 230 160 / 0.6);
+  opacity: 0;
+  animation: hut-bubble 2.6s ease-out forwards;
+  animation-delay: calc(var(--i) * 0.22s);
+}
+
+@keyframes hut-bubble {
+  0% {
+    opacity: 0;
+    transform: translate(0, 0) scale(0.3);
+  }
+  12% {
+    opacity: 1;
+    transform: translate(0, -80%) scale(1);
+  }
+  35% {
+    transform: translate(calc(var(--dx) * 0.4), -280%) scale(1);
+  }
+  60% {
+    transform: translate(calc(var(--dx) * -0.2), -520%) scale(1.05);
+  }
+  85% {
+    opacity: 1;
+    transform: translate(var(--dx), -760%) scale(1.1);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(var(--dx), -800%) scale(1.8);
+  }
+}
+
+/* The shuttered window: the loose shutter rattles on its hinge and embers blow out. */
+.hut-flash-ember {
+  width: 16%;
+  background: radial-gradient(
+    closest-side,
+    rgb(255 140 70 / 0.65),
+    rgb(200 70 30 / 0.2) 55%,
+    transparent
+  );
+}
+
+.hut-ember {
+  position: absolute;
+  width: 1.3%;
+  aspect-ratio: 1;
+  translate: -50% -50%;
+  border-radius: 50%;
+  background: #ffd08a;
+  box-shadow: 0 0 4px 1px rgb(255 110 40 / 0.85);
+  opacity: 0;
+  animation: hut-ember 2.2s ease-out forwards;
+  animation-delay: calc(var(--i) * 0.08s);
+}
+
+@keyframes hut-ember {
+  0% {
+    opacity: 0;
+    transform: translate(0, 0);
+  }
+  8%,
+  60% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translate(var(--dx), var(--dy));
+  }
+}
+
+.hut-shutter {
+  transform-box: fill-box;
+  transform-origin: 0 0;
+}
+
+[data-playing~="embers"] .hut-shutter {
+  animation: hut-shutter 1.6s ease-out;
+}
+
+@keyframes hut-shutter {
+  0%,
+  70%,
+  100% {
+    transform: rotate(0);
+  }
+  12% {
+    transform: rotate(-16deg);
+  }
+  26% {
+    transform: rotate(9deg);
+  }
+  40% {
+    transform: rotate(-6deg);
+  }
+  55% {
+    transform: rotate(3deg);
+  }
+}
+
+/* A witch's shadow passes the kitchen window. */
+.hut-witch-shadow {
+  fill: rgb(36 14 4 / 0.82);
+  animation: hut-witch 2.6s ease-in-out both;
+}
+
+@keyframes hut-witch {
+  0% {
+    transform: translate(-32px, 2px);
+  }
+  25% {
+    transform: translate(-16px, 0);
+  }
+  50% {
+    transform: translate(0, 1.5px);
+  }
+  75% {
+    transform: translate(16px, 0);
+  }
+  100% {
+    transform: translate(32px, 2px);
+  }
+}
+
+/* A little ghost rises into the parlour window, sways as it waves, and ducks away. */
+.hut-ghost-rise {
+  transform-box: fill-box;
+  transform-origin: 50% 100%;
+  animation: hut-ghost 3s ease-in-out both;
+}
+
+.hut-ghost-sheet {
+  fill: #e8f2ee;
+}
+
+.hut-ghost-cut {
+  fill: #1b2624;
+}
+
+@keyframes hut-ghost {
+  0%,
+  100% {
+    transform: translate(0, 24px);
+  }
+  25%,
+  72% {
+    transform: translate(0, 0);
+  }
+  40% {
+    transform: translate(-1.5px, -1px) rotate(-4deg);
+  }
+  55% {
+    transform: translate(1.5px, 0) rotate(4deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cue-word > span,
+  .wake-cue[data-shown],
+  .bayou *,
+  .bayou *::after,
+  .hut-spot::before {
+    animation: none;
+  }
+
+  .hut-moon,
+  .hut-full-moon,
+  .hut-moon-halo,
+  .hut-door-leaf,
+  .hut-door-inside,
+  .hut-door-edge,
+  .hut-door-cut,
+  .hut-door-light {
+    transition: none;
+  }
+}
