@@ -47,15 +47,20 @@ After any change you can see, run `npm run check` and look at shots/.
     whole px as the browser snapped the elements.
   - `Hut.tsx`: the witch's hut on its hill, its reflection, its lights, and the unseen buttons over
     its parts (`SPOTS`) with what each touch sets going (`Effect`). `HutCats.tsx`: the two cats on
-    the ridge, in their own small SVG so their animation repaints only that. `props.ts`: the star,
-    crescent, ghost, heart and cauldron shapes.
+    the ridge, in their own small SVG so their animation repaints only that; the stars and the
+    candle's window are laid over the hut the same way (`Lights`), for the same reason.
+    `props.ts`: the star, crescent, ghost, heart and cauldron shapes.
   - `moss.ts` and `rng.ts`: every shape from fixed seeds, so it's the same on every visit.
   - `bursts.ts`: one-off effects, removed by timer, capped per part.
   - `pace.ts`: draws everything at most `?fps` times a second (30 by default): the canvas loop
     (`frame`) and every CSS animation are held and stepped on one timer. Left alone, a browser draws
     on every screen refresh while anything moves; on a 165 Hz monitor that held a desktop GPU at a
     quarter of its power, and 30 fps brought it near idle. Capping the canvases alone saves nothing
-    while CSS animations run free. What's left is CPU: stepping an animation costs about the same
+    while CSS animations run free. Left alone 10 s (no pointer over it), it's drawn at `?idle` (15)
+    instead, back to `?fps` at the first move; ticks come from `setInterval`, not a timeout per
+    tick (on Windows that cost the GPU process more CPU). A full-screen `mix-blend-mode` layer cost
+    the GPU a third of its work every tick, so there's none; measure GPU cost by board power
+    (`nvidia-smi`), not Task Manager. What's left is CPU: stepping an animation costs about the same
     whatever it moves, so every running animation costs a step every tick (about 60 at rest, with
     the bayou awake). Each one's end is read once, as it's held. Keep the count down: draw many
     small moving things on a canvas instead, and stop animations no one can see (the reflection's

@@ -25,7 +25,8 @@ opens the sound menu: tick which sounds play (the tune, the bayou's creatures, t
 touching it). The choice is remembered.
 
 It's drawn at most 30 times a second, which looks the same for something this slow and keeps a
-desktop GPU nearly idle. Add `?fps=20` (or any number) to the URL to change that, or `?fps=0` to
+desktop GPU nearly idle, and 15 times a second once no pointer has moved over it for 10 seconds.
+Add `?fps=20` (or any number) to the URL to change the first, `?idle=` the second, or `?fps=0` to
 draw at the screen's own rate. `?sound=off` leaves the sound out altogether.
 
 ## Running it

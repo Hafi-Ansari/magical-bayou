@@ -218,7 +218,19 @@ const LICHEN = [
   lichen(rng, 150, 372, 14, 10),
 ].join('')
 
-function Drawing() {
+const STARS = `${star(140, -96, 3.2)} ${star(286, -116, 2.4)} ${star(116, -36, 2)} ${star(330, -74, 2.6)} ${star(176, -128, 1.8)}`
+/** The bars over the candle's window, its sill, and its frame catching the fog's light. */
+const CANDLE_BARS = 'M172 191V240M160 214H184M160 227H184'
+const CANDLE_SILL = 'M157 241h30'
+const CANDLE_RIM = 'M158 241V210Q158 196 172 188Q186 196 186 210V241'
+
+/**
+ * The hut. The stars twinkle and the candle gutters, and a change inside an SVG repaints it, so
+ * over the hut they're left out of this and laid over it in small SVGs of their own (`Lights`),
+ * changed every tick without a repaint. `still` (the reflection, where they're held anyway) draws
+ * them in.
+ */
+function Drawing({ still = false }: { still?: boolean }) {
   return (
     <svg
       className="hut-art"
@@ -227,10 +239,7 @@ function Drawing() {
     >
       {/* The crescent moon over them, among a few stars. */}
       <path className="hut-moon" d={crescent(212, -26, 26)} />
-      <path
-        className="hut-stars"
-        d={`${star(140, -96, 3.2)} ${star(286, -116, 2.4)} ${star(116, -36, 2)} ${star(330, -74, 2.6)} ${star(176, -128, 1.8)}`}
-      />
+      {still && <path className="hut-stars" d={STARS} />}
       <g fill="currentColor">
         {/* The hill, rising out of the water. */}
         <path d="M0 460C6 448 14 440 24 436C26 426 36 420 46 420C50 410 58 404 68 404C70 394 78 388 86 386C84 376 88 368 94 364C92 356 94 350 98 346L310 342C316 346 322 352 326 358C336 356 346 362 350 372C360 374 368 382 370 392C380 398 386 408 386 418C394 426 398 440 400 460Z" />
@@ -366,21 +375,16 @@ function Drawing() {
         </g>
       ))}
       {/* Upstairs: a candle in a pointed window, and embers behind the shuttered one. */}
-      <path
-        className="hut-light-pale hut-candle"
-        d="M160 240V210Q160 197 172 190Q184 197 184 210V240Z"
-      />
+      {still && <path className="hut-light-pale" d={CANDLE_WINDOW} />}
       <path className="hut-light-ember" d="M268 201H292V228H268Z" />
       <g fill="none" stroke="currentColor">
-        <path d="M172 191V240M160 214H184M160 227H184M280 201V228M268 214H292" strokeWidth="1.8" />
-        <path d="M157 241h30M265 229h30" strokeWidth="3" />
+        {still && <path d={CANDLE_BARS} strokeWidth="1.8" />}
+        {still && <path d={CANDLE_SILL} strokeWidth="3" />}
+        <path d="M280 201V228M268 214H292" strokeWidth="1.8" />
+        <path d="M265 229h30" strokeWidth="3" />
       </g>
-      <path
-        className="hut-rim"
-        fill="none"
-        strokeWidth="1.4"
-        d="M158 241V210Q158 196 172 188Q186 196 186 210V241M266 199H294V230H266Z"
-      />
+      <path className="hut-rim" fill="none" strokeWidth="1.4" d="M266 199H294V230H266Z" />
+      {still && <path className="hut-rim" fill="none" strokeWidth="1.4" d={CANDLE_RIM} />}
       {/* Moss strands hanging down over the round window. */}
       <path
         className="hut-moss-line"
@@ -519,6 +523,30 @@ function Overlay({
     >
       {children}
     </svg>
+  )
+}
+
+/**
+ * The stars and the candle's window, laid over the drawing (`Drawing`) so they twinkle and gutter
+ * by their own SVG's opacity. The window's bars, sill and rim go back over its pane, as drawn.
+ */
+function Lights() {
+  return (
+    <>
+      <Overlay box={[110, -132, 226, 102]} className="hut-stars">
+        <path d={STARS} />
+      </Overlay>
+      <Overlay box={[156, 186, 32, 58]} className="hut-candle">
+        <path className="hut-light-pale" d={CANDLE_WINDOW} />
+      </Overlay>
+      <Overlay box={[156, 186, 32, 58]}>
+        <g fill="none" stroke="currentColor">
+          <path d={CANDLE_BARS} strokeWidth="1.8" />
+          <path d={CANDLE_SILL} strokeWidth="3" />
+        </g>
+        <path className="hut-rim" fill="none" strokeWidth="1.4" d={CANDLE_RIM} />
+      </Overlay>
+    </>
   )
 }
 
@@ -806,7 +834,7 @@ export function Hut({ awake }: { awake: boolean }) {
   return (
     <>
       <div className="hut-reflection" {...state}>
-        <Drawing />
+        <Drawing still />
       </div>
       <div className="hut" {...state}>
         {/* The house, its roof and the cats on it, without the sky: the fireflies gather round
@@ -818,6 +846,7 @@ export function Hut({ awake }: { awake: boolean }) {
         <span className="hut-moon-glow" style={at(MOON.x, MOON.y)} />
         <span className="hut-moon-halo" style={at(MOON.x, MOON.y)} />
         <Drawing />
+        <Lights />
         {/* Touched, the moon waxes full: glowing through the fog, which drifts across it. */}
         <span className="hut-full-moon" style={at(MOON.x, MOON.y, { width: left(2 * MOON.r) })}>
           <span className="hut-full-moon-disc" />
