@@ -3,13 +3,15 @@ import { cue } from '../sound/cues'
 import { reducedMotion, useBursts } from './bursts'
 import { Hut } from './Hut'
 import { createRng } from './rng'
+import { type Streak, startStreaks } from './streaks'
 import { CYCLE, SWEEP, startWilds, type Wilds } from './wilds'
 
 /*
  * The bayou after dusk. The calm parts are CSS: the sky and its glow, the near cypress trunks,
- * the water with its moving waves and broken lantern light, the witch's hut out on the water
- * (Hut.tsx), and the lanterns. The living parts (fog, moss in the wind, fireflies) are drawn by
- * wilds.ts on canvases, the fog and moss behind the lanterns and the fireflies in front of it all.
+ * the water with its moving waves, the witch's hut out on the water (Hut.tsx), and the lanterns.
+ * The living parts (fog, moss in the wind, fireflies) are drawn by wilds.ts on canvases, the fog
+ * and moss behind the lanterns and the fireflies in front of it all, and with them the lantern
+ * light broken up on the water, on a canvas in the water (streaks.ts).
  * Everything is generated from fixed seeds, so it's the same on every visit.
  *
  * Once it's awake (`awake`, App.tsx), it can be played in: the hut's parts can be touched
@@ -23,30 +25,23 @@ const LANTERNS = [
   { x: 86, drop: 8 },
 ]
 
-interface Ripple {
-  left: string
-  top: string
-  width: number
-  duration: number
-  delay: number
-  glow: boolean
-}
-
 /**
  * Light broken up on the water: short streaks under each lantern, and wide faint ones under the
- * glow in the middle, each shivering on its own.
+ * glow in the middle, each shivering on its own. Drawn on a canvas in the water (streaks.ts).
  */
-function ripples(): Ripple[] {
+function ripples(): Streak[] {
   const rng = createRng(29)
-  const out: Ripple[] = []
+  const out: Streak[] = []
+  const round = (n: number, places: number) => Number(n.toFixed(places))
   const streak = (x: number, spread: number, wide: number, glow: boolean) => {
     const depth = rng.float()
     out.push({
-      left: `calc(${x}% + ${((rng.float() - 0.5) * spread * (0.4 + depth)).toFixed(0)}px)`,
-      top: `${(4 + depth * 88).toFixed(1)}%`,
+      x,
+      dx: round((rng.float() - 0.5) * spread * (0.4 + depth), 0),
+      y: round(4 + depth * 88, 1),
       width: Math.round((6 + rng.float() * wide) * (0.5 + depth)),
-      duration: 1.4 + rng.float() * 2.4,
-      delay: -rng.float() * 4,
+      duration: round(1.4 + rng.float() * 2.4, 2),
+      delay: round(-rng.float() * 4, 2),
       glow,
     })
   }
@@ -84,6 +79,7 @@ export function Bayou({ awake }: { awake: boolean }) {
   const mist = useRef<HTMLCanvasElement>(null)
   const back = useRef<HTMLCanvasElement>(null)
   const front = useRef<HTMLCanvasElement>(null)
+  const streaks = useRef<HTMLCanvasElement>(null)
   const wilds = useRef<Wilds | null>(null)
   const water = useRef<HTMLDivElement>(null)
   const hung = useRef<(HTMLDivElement | null)[]>([])
@@ -148,14 +144,16 @@ export function Bayou({ awake }: { awake: boolean }) {
   }, [awake, flare, ripple, shoot])
 
   useEffect(() => {
-    if (!mist.current || !back.current || !front.current) return
+    if (!mist.current || !back.current || !front.current || !streaks.current) return
+    const still = reducedMotion()
     const drawn = startWilds(
       mist.current,
       back.current,
       front.current,
       // The fireflies gather round the house and its roof.
       () => document.querySelector('.hut-heart')?.getBoundingClientRect() ?? null,
-      reducedMotion(),
+      still,
+      startStreaks(streaks.current, RIPPLES, still),
     )
     wilds.current = drawn
     return () => {
@@ -198,19 +196,7 @@ export function Bayou({ awake }: { awake: boolean }) {
           <div className="waves waves-far" />
           <div className="waves waves-mid" />
           <div className="waves waves-near" />
-          {RIPPLES.map((r) => (
-            <span
-              key={`${r.left} ${r.top}`}
-              className={r.glow ? 'ripple ripple-glow' : 'ripple'}
-              style={{
-                left: r.left,
-                top: r.top,
-                width: `${r.width}px`,
-                animationDuration: `${r.duration.toFixed(2)}s`,
-                animationDelay: `${r.delay.toFixed(2)}s`,
-              }}
-            />
-          ))}
+          <canvas ref={streaks} className="streaks" />
         </div>
         <Hut awake={awake} />
         {/* Ripples spreading from where the water's been touched. */}

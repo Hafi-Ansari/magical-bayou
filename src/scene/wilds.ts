@@ -221,7 +221,8 @@ export interface Wilds {
 /**
  * Starts drawing; returns the means to stop it and to touch its lanterns. `mist` takes the fog
  * and `back` the moss, `front` the fireflies. `around` finds the hut on screen, so the fireflies
- * can gather round it. With `still` (reduced motion), it draws one quiet frame instead.
+ * can gather round it. With `still` (reduced motion), it draws one quiet frame instead. `water`
+ * draws the lantern light on the water (streaks.ts) on the same frames.
  */
 export function startWilds(
   mist: HTMLCanvasElement,
@@ -229,6 +230,7 @@ export function startWilds(
   front: HTMLCanvasElement,
   around: () => DOMRect | null,
   still: boolean,
+  water: (t: number) => void,
 ): Wilds {
   const mg = mist.getContext('2d')
   const bg = back.getContext('2d')
@@ -449,6 +451,7 @@ export function startWilds(
   const draw = (t: number) => {
     // The hut moves with the screen's size, so it's found again every frame (one rect).
     measure()
+    water(t)
     drawMist(t)
     if (t - canopyAt >= CANOPY_STEP) {
       canopyAt = t

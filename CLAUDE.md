@@ -34,11 +34,17 @@ After any change you can see, run `npm run check` and look at shots/.
   and wakes the bayou (`awake`). With every sound layer off (or `?sound=off`) it opens awake.
 - `src/content.ts`: every word shown or read out (the cue, the menu, each hut part's label).
 - `src/scene/`:
-  - `Bayou.tsx`: the calm CSS layers (sky, glow, trunks, water with waves and lantern streaks, two
-    lanterns on cords) and the touches of the lanterns, water and sky.
+  - `Bayou.tsx`: the calm CSS layers (sky, glow, trunks, water with waves, two lanterns on cords),
+    where the lantern streaks on the water lie (`ripples`), and the touches of the lanterns, water
+    and sky.
   - `wilds.ts`: what's drawn on canvases every tick: fog, the canopy's limbs and moss in the wind
     with lanterns on them, and the fireflies (many gathered round the hut). Limbs and foliage are
     painted once per screen size and stamped; the canopy is redrawn at most 30 times a second.
+  - `streaks.ts`: the lantern streaks on the water, on a canvas in `.water`, drawn from wilds.ts's
+    loop. They were 50 animated elements; each is painted once per water size (bar and
+    box-shadow-like glow) and stamped every tick, stretched and faded exactly as their old
+    `@keyframes ripple` (`ease-in-out infinite alternate`, `shiver`) moved them, and snapped to
+    whole px as the browser snapped the elements.
   - `Hut.tsx`: the witch's hut on its hill, its reflection, its lights, and the unseen buttons over
     its parts (`SPOTS`) with what each touch sets going (`Effect`). `HutCats.tsx`: the two cats on
     the ridge, in their own small SVG so their animation repaints only that. `props.ts`: the star,
@@ -49,7 +55,11 @@ After any change you can see, run `npm run check` and look at shots/.
     (`frame`) and every CSS animation are held and stepped on one timer. Left alone, a browser draws
     on every screen refresh while anything moves; on a 165 Hz monitor that held a desktop GPU at a
     quarter of its power, and 30 fps brought it near idle. Capping the canvases alone saves nothing
-    while CSS animations run free.
+    while CSS animations run free. What's left is CPU: stepping an animation costs about the same
+    whatever it moves, so every running animation costs a step every tick (about 60 at rest, with
+    the bayou awake). Each one's end is read once, as it's held. Keep the count down: draw many
+    small moving things on a canvas instead, and stop animations no one can see (the reflection's
+    stars, the wake cue once it's gone).
   - **The 10 s cycle** (`CYCLE`, `SWEEP` in wilds.ts): a wave of light runs through the lanterns
     every 10 s, and the hut's parts glint after it. The CSS animations join the same clock through
     their delay, `-(performance.now() / 1000 % CYCLE)` taken as they mount. Change `CYCLE` and the
