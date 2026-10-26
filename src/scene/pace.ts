@@ -19,8 +19,11 @@ const STEP_MS = Number.isFinite(FPS) && FPS > 0 ? 1000 / FPS : 0
 /** Draws waiting for the next tick, by id. */
 let waiting = new Map<number, FrameRequestCallback>()
 let nextId = 1
-/** The animations held, to be stepped: only those, not any paused by their own CSS. */
-const held = new WeakSet<Animation>()
+/**
+ * The animations held, to be stepped (only those, not any paused by their own CSS), and when each
+ * ends, read once as it's held: Infinity for one that never does, which is most of them.
+ */
+const held = new WeakMap<Animation, number>()
 let last = 0
 
 function tick() {
@@ -30,14 +33,15 @@ function tick() {
   for (const a of document.getAnimations()) {
     if (a.playState === 'running') {
       a.pause()
-      held.add(a)
+      const end = a.effect?.getComputedTiming().endTime
+      held.set(a, typeof end === 'number' ? end : Number.POSITIVE_INFINITY)
       continue
     }
-    if (a.playState !== 'paused' || !held.has(a)) continue
+    const end = held.get(a)
+    if (end === undefined || a.playState !== 'paused') continue
     const at = Number(a.currentTime ?? 0) + dt
     // A one-off lets go at its end, so it finishes as it would have (its fill, its `finished`).
-    const end = a.effect?.getComputedTiming().endTime
-    if (typeof end === 'number' && Number.isFinite(end) && at >= end) a.finish()
+    if (at >= end) a.finish()
     else a.currentTime = at
   }
   const due = waiting
