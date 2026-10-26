@@ -8,13 +8,29 @@
  * moves slowly, so it looks the same; measured on an RTX 4060 Ti at 1440p, its draw fell from
  * about 15 W to 2.5 W. Capping the canvases alone saves nothing while the CSS animations run free.
  * `?fps=0` lets it run at the screen's own rate.
+ *
+ * As a wallpaper it's mostly left alone, under windows or with the pointer on another screen, and
+ * then it's drawn slower: `?idle` times a second (IDLE_FPS unless the URL says otherwise) once no
+ * pointer has moved over it for IDLE_AFTER, back to `?fps` at the first move or touch. Every
+ * step goes by the time that passed, so nothing moves slower, only in fewer steps. On the same
+ * GPU, left alone it draws about half what it does at 30 (0.8 W over idle, against 1.6 W).
+ * `?idle=0` keeps it at `?fps`.
  */
 
 const DEFAULT_FPS = 30
-const asked =
-  typeof window === 'undefined' ? null : new URLSearchParams(window.location.search).get('fps')
-const FPS = asked === null ? DEFAULT_FPS : Number(asked)
-const STEP_MS = Number.isFinite(FPS) && FPS > 0 ? 1000 / FPS : 0
+const IDLE_FPS = 15
+/** How long without a pointer moving over the bayou before it's drawn at the idle rate, in ms. */
+const IDLE_AFTER = 10_000
+const query = typeof window === 'undefined' ? null : new URLSearchParams(window.location.search)
+/** Milliseconds a step, from a rate in the URL or its default: 0 for no cap. */
+function stepOf(name: string, fallback: number): number {
+  const asked = query?.get(name) ?? null
+  const fps = asked === null ? fallback : Number(asked)
+  return Number.isFinite(fps) && fps > 0 ? 1000 / fps : 0
+}
+const STEP_MS = stepOf('fps', DEFAULT_FPS)
+/** Never quicker than the awake rate; with no idle rate, the awake one. */
+const IDLE_MS = Math.max(STEP_MS, stepOf('idle', IDLE_FPS))
 
 /** Draws waiting for the next tick, by id. */
 let waiting = new Map<number, FrameRequestCallback>()
@@ -49,9 +65,38 @@ function tick() {
   for (const draw of due.values()) draw(now)
 }
 
+/** When a pointer last moved over the bayou or touched it. */
+let stirred = 0
+let timer = 0
+/** The step the timer runs at now. */
+let pace = 0
+
+/**
+ * Ticks every `step` ms. An interval, not a timeout set again after each tick: a timeout for the
+ * rest of a step asks for less than 32 ms, and on Windows that cost the GPU process about a fifth
+ * more CPU, as the browser woke more finely for it.
+ */
+function run(step: number) {
+  window.clearInterval(timer)
+  pace = step
+  timer = window.setInterval(() => {
+    tick()
+    if (pace !== IDLE_MS && performance.now() - stirred > IDLE_AFTER) run(IDLE_MS)
+  }, step)
+}
+
+/** A pointer moving: back to the full rate, at once if it was drawing at the idle one. */
+function stir() {
+  stirred = performance.now()
+  if (pace !== STEP_MS) run(STEP_MS)
+}
+
 if (STEP_MS) {
   last = performance.now()
-  window.setInterval(tick, STEP_MS)
+  stirred = last
+  run(STEP_MS)
+  window.addEventListener('pointermove', stir, { passive: true })
+  window.addEventListener('pointerdown', stir, { passive: true })
 }
 
 /** `requestAnimationFrame`, or with `?fps`, the next tick. */
